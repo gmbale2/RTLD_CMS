@@ -14,11 +14,17 @@ export interface CmsPost {
 }
 
 export interface WheelSegment {
-  id: string;
+  position: number;
   label: string;
+  type: string;
   odds: number;
-  active: boolean;
-  prize_type: string;
+  enabled: boolean;
+  discount_pct: number | null;
+  discount_code: string | null;
+  score_value: number | null;
+  shopify_url: string | null;
+  result_title: string | null;
+  result_desc: string | null;
   email_body: string | null;
 }
 
@@ -36,8 +42,16 @@ export interface Prize {
 }
 
 export interface CmsConfig {
-  key: string;
-  value: string;
+  id: string;
+  spin_threshold: number;
+  prize_enabled: boolean;
+  wheel_segments: unknown;
+  updated_at: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  prize_title: string | null;
+  prize_description: string | null;
+  prize_value: string | null;
 }
 
 export interface Profile {

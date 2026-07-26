@@ -34,6 +34,7 @@ function laInputToISO(local: string): string | null {
 }
 
 export default function GamePage() {
+  const [configId, setConfigId] = useState<string | null>(null);
   const [wheelEnabled, setWheelEnabled] = useState(false);
   const [scoreThreshold, setScoreThreshold] = useState("20000");
   const [segments, setSegments] = useState<WheelSegment[]>([]);
@@ -46,14 +47,16 @@ export default function GamePage() {
   async function load() {
     const supabase = createClient();
     const [{ data: cfg }, { data: segs }, { data: prs }] = await Promise.all([
-      supabase.from("cms_config").select("*"),
-      supabase.from("wheel_segments").select("*").order("id"),
+      supabase.from("cms_config").select("*").limit(1).single(),
+      supabase.from("wheel_segments").select("*").order("position"),
       supabase.from("prizes").select("*").order("created_at"),
     ]);
-    const cfgMap: Record<string, string> = {};
-    (cfg as CmsConfig[] ?? []).forEach(c => { cfgMap[c.key] = c.value; });
-    setWheelEnabled(cfgMap["wheel_enabled"] === "true");
-    setScoreThreshold(cfgMap["wheel_score_threshold"] ?? "20000");
+    if (cfg) {
+      const row = cfg as CmsConfig;
+      setConfigId(row.id);
+      setWheelEnabled(row.prize_enabled ?? false);
+      setScoreThreshold(String(row.spin_threshold ?? 20000));
+    }
     setSegments(segs ?? []);
     setPrizes(prs ?? []);
   }
@@ -61,12 +64,14 @@ export default function GamePage() {
   useEffect(() => { load(); }, []);
 
   async function saveConfig() {
+    if (!configId) return;
     setSaving(true);
     const supabase = createClient();
-    const { error } = await supabase.from("cms_config").upsert([
-      { key: "wheel_enabled", value: String(wheelEnabled) },
-      { key: "wheel_score_threshold", value: scoreThreshold },
-    ], { onConflict: "key" });
+    const { error } = await supabase.from("cms_config").update({
+      prize_enabled: wheelEnabled,
+      spin_threshold: parseInt(scoreThreshold, 10),
+      updated_at: new Date().toISOString(),
+    }).eq("id", configId);
     setConfigMsg(error ? `Error: ${error.message}` : "Saved ✓");
     setSaving(false);
     setTimeout(() => setConfigMsg(""), 3000);
@@ -74,19 +79,21 @@ export default function GamePage() {
 
   async function saveAllOdds() {
     const supabase = createClient();
-    const updates = segments.map(s => supabase.from("wheel_segments").update({ odds: s.odds, active: s.active }).eq("id", s.id));
+    const updates = segments.map(s =>
+      supabase.from("wheel_segments").update({ odds: s.odds, enabled: s.enabled }).eq("position", s.position)
+    );
     const results = await Promise.all(updates);
     const err = results.find(r => r.error);
     setOddsMsg(err ? `Error: ${err.error!.message}` : "Odds saved ✓");
     setTimeout(() => setOddsMsg(""), 3000);
   }
 
-  function updateSegmentOdds(id: string, odds: number) {
-    setSegments(prev => prev.map(s => s.id === id ? { ...s, odds } : s));
+  function updateSegmentOdds(position: number, odds: number) {
+    setSegments(prev => prev.map(s => s.position === position ? { ...s, odds } : s));
   }
 
-  function toggleSegment(id: string, active: boolean) {
-    setSegments(prev => prev.map(s => s.id === id ? { ...s, active } : s));
+  function toggleSegment(position: number, enabled: boolean) {
+    setSegments(prev => prev.map(s => s.position === position ? { ...s, enabled } : s));
   }
 
   async function savePrize(prize: Prize) {
@@ -110,7 +117,26 @@ export default function GamePage() {
     setPrizes(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
   }
 
-  const activeSegments = segments.filter(s => s.active);
+  async function createPrize() {
+    const supabase = createClient();
+    const { data, error } = await supabase.from("prizes").insert({
+      name: "New Prize",
+      description: "",
+      active: false,
+    }).select().single();
+    if (error) { alert(`Error: ${error.message}`); return; }
+    setPrizes(prev => [...prev, data as Prize]);
+  }
+
+  async function deletePrize(id: string) {
+    if (!confirm("Delete this prize?")) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("prizes").delete().eq("id", id);
+    if (error) { alert(`Error: ${error.message}`); return; }
+    setPrizes(prev => prev.filter(p => p.id !== id));
+  }
+
+  const activeSegments = segments.filter(s => s.enabled);
   const totalOdds = activeSegments.reduce((sum, s) => sum + (s.odds ?? 0), 0);
   const oddsOk = Math.abs(totalOdds - 100) < 0.5;
 
@@ -168,23 +194,23 @@ export default function GamePage() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           {segments.map(seg => (
-            <div key={seg.id} style={{ display: "flex", gap: 16, alignItems: "center", padding: "14px 16px", background: "var(--bg-base)", borderRadius: 8, border: "1px solid var(--border)" }}>
-              <Toggle value={seg.active} onChange={v => toggleSegment(seg.id, v)} />
-              <div style={{ flex: 1, opacity: seg.active ? 1 : 0.4 }}>
+            <div key={seg.position} style={{ display: "flex", gap: 16, alignItems: "center", padding: "14px 16px", background: "var(--bg-base)", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <Toggle value={seg.enabled} onChange={v => toggleSegment(seg.position, v)} />
+              <div style={{ flex: 1, opacity: seg.enabled ? 1 : 0.4 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text)" }}>{seg.label}</div>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                   <input
                     type="range" min={0} max={100} step={0.5}
                     value={seg.odds ?? 0}
-                    disabled={!seg.active}
-                    onChange={e => updateSegmentOdds(seg.id, parseFloat(e.target.value))}
+                    disabled={!seg.enabled}
+                    onChange={e => updateSegmentOdds(seg.position, parseFloat(e.target.value))}
                     style={{ flex: 1, accentColor: "var(--purple)" }}
                   />
                   <input
                     type="number" min={0} max={100} step={0.5}
                     value={seg.odds ?? 0}
-                    disabled={!seg.active}
-                    onChange={e => updateSegmentOdds(seg.id, parseFloat(e.target.value) || 0)}
+                    disabled={!seg.enabled}
+                    onChange={e => updateSegmentOdds(seg.position, parseFloat(e.target.value) || 0)}
                     style={{ width: 80, textAlign: "center", fontWeight: 700, color: "var(--purple)" }}
                   />
                   <span style={{ fontSize: 12, color: "var(--text-muted)", width: 16 }}>%</span>
@@ -197,7 +223,10 @@ export default function GamePage() {
 
       {/* Prizes */}
       <section style={{ ...card, marginTop: 20 }}>
-        <div style={{ ...sectionTitle, marginBottom: 24 }}>Prizes & Leaderboard Rewards</div>
+        <div style={{ ...rowBetween, marginBottom: 24 }}>
+          <div style={sectionTitle}>Prizes & Leaderboard Rewards</div>
+          <button onClick={createPrize} style={btnPrimary}>+ Add Prize</button>
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {prizes.map(prize => (
             <div key={prize.id} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "20px" }}>
@@ -255,6 +284,9 @@ export default function GamePage() {
                 <button onClick={() => savePrize(prize)} style={{ ...btnPrimary, width: "auto", padding: "9px 22px" }}>
                   Save Prize
                 </button>
+                <button onClick={() => deletePrize(prize.id)} style={{ ...btnSecondary, color: "var(--red)", borderColor: "var(--red)" }}>
+                  Delete
+                </button>
                 {prizeMsgs[prize.id] && (
                   <span style={{ fontSize: 13, color: prizeMsgs[prize.id].startsWith("Error") ? "var(--red)" : "var(--green)" }}>
                     {prizeMsgs[prize.id]}
@@ -292,3 +324,4 @@ const sectionTitle: React.CSSProperties = { fontSize: 15, fontWeight: 700, color
 const fieldLabel: React.CSSProperties = { fontSize: 11, color: "var(--text-muted)", letterSpacing: 0.5, fontWeight: 600, textTransform: "uppercase" as const, marginBottom: 6 };
 const rowBetween: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center" };
 const btnPrimary: React.CSSProperties = { background: "var(--purple)", color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 700, fontSize: 13, cursor: "pointer" };
+const btnSecondary: React.CSSProperties = { background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text-muted)", borderRadius: 6, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" };
