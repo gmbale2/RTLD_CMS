@@ -5,7 +5,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 
-interface DayCount { date: string; count: number; [key: string]: unknown }
+interface DayCount { date: string; count: number; players: number; [key: string]: unknown }
 interface TopPlayer { display_name: string; username: string; score: number; [key: string]: unknown }
 interface WheelOutcome { label: string; count: number; [key: string]: unknown }
 
@@ -83,6 +83,7 @@ export default function AnalyticsPage() {
   const [wheelOutcomes, setWheelOutcomes] = useState<WheelOutcome[]>([]);
   const [totalRegs, setTotalRegs] = useState(0);
   const [totalGames, setTotalGames] = useState(0);
+  const [totalUniquePlayers, setTotalUniquePlayers] = useState(0);
   const [totalSpins, setTotalSpins] = useState(0);
   const [loading, setLoading] = useState(false);
 
@@ -94,7 +95,7 @@ export default function AnalyticsPage() {
 
     const [{ data: regData }, { data: scoreData }, { data: topData }, { data: wheelData }] = await Promise.all([
       supabase.from("profiles").select("created_at").gte("created_at", from).lte("created_at", to),
-      supabase.from("scores").select("played_at").gte("played_at", from).lte("played_at", to),
+      supabase.from("scores").select("played_at, user_id").gte("played_at", from).lte("played_at", to),
       // scores table has display_name and username directly — filtered to selected period
       supabase.from("scores").select("user_id, username, display_name, score").gte("played_at", from).lte("played_at", to).order("score", { ascending: false }).limit(200),
       supabase.from("wheel_rewards").select("prize_title, claimed_at").gte("claimed_at", from).lte("claimed_at", to),
@@ -109,14 +110,23 @@ export default function AnalyticsPage() {
     setRegistrations(Object.entries(regByDay).sort().map(([date, count]) => ({ date, count })));
     setTotalRegs(regData?.length ?? 0);
 
-    // Games by day
+    // Games by day + unique players per day
     const gamesByDay: Record<string, number> = {};
+    const playersByDay: Record<string, Set<string>> = {};
     (scoreData ?? []).forEach(s => {
       const day = s.played_at.slice(0, 10);
       gamesByDay[day] = (gamesByDay[day] ?? 0) + 1;
+      if (!playersByDay[day]) playersByDay[day] = new Set();
+      if (s.user_id) playersByDay[day].add(s.user_id);
     });
-    setGamesPlayed(Object.entries(gamesByDay).sort().map(([date, count]) => ({ date, count })));
+    setGamesPlayed(Object.entries(gamesByDay).sort().map(([date, count]) => ({
+      date,
+      count,
+      players: playersByDay[date]?.size ?? 0,
+    })));
     setTotalGames(scoreData?.length ?? 0);
+    const allUnique = new Set((scoreData ?? []).map(s => s.user_id).filter(Boolean));
+    setTotalUniquePlayers(allUnique.size);
 
     // Top players — deduplicate by user_id, keep highest score
     const seen = new Set<string>();
@@ -179,10 +189,11 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
         {[
           { label: "New Registrations", value: totalRegs, color: "var(--purple)" },
           { label: "Games Played", value: totalGames, color: "var(--green)" },
+          { label: "Unique Players", value: totalUniquePlayers, color: "#06b6d4" },
           { label: "Wheel Spins", value: totalSpins, color: "var(--yellow)" },
         ].map(({ label, value, color }) => (
           <div key={label} style={card}>
@@ -222,7 +233,11 @@ export default function AnalyticsPage() {
 
       {/* Games Played */}
       <div style={{ ...card, marginBottom: 20 }}>
-        <div style={sectionTitle}>Games Played Over Time</div>
+        <div style={{ ...sectionTitle, marginBottom: 8 }}>Games Played Over Time</div>
+        <div style={{ display: "flex", gap: 20, marginBottom: 16, fontSize: 12, color: "var(--text-muted)" }}>
+          <span><span style={{ display: "inline-block", width: 12, height: 3, background: "var(--green)", verticalAlign: "middle", marginRight: 5, borderRadius: 2 }} />Total Games</span>
+          <span><span style={{ display: "inline-block", width: 12, height: 3, background: "#06b6d4", verticalAlign: "middle", marginRight: 5, borderRadius: 2 }} />Unique Players</span>
+        </div>
         {gamesPlayed.length > 0 ? (
           <>
             <ResponsiveContainer width="100%" height={160}>
@@ -232,6 +247,7 @@ export default function AnalyticsPage() {
                 <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Line type="monotone" dataKey="count" stroke="var(--green)" strokeWidth={2} dot={false} name="Games" />
+                <Line type="monotone" dataKey="players" stroke="#06b6d4" strokeWidth={2} dot={false} name="Unique Players" />
               </LineChart>
             </ResponsiveContainer>
             <div style={{ marginTop: 16 }}>
@@ -241,6 +257,7 @@ export default function AnalyticsPage() {
                 columns={[
                   { key: "date", label: "Date" },
                   { key: "count", label: "Games Played", render: r => <strong style={{ color: "var(--green)" }}>{r.count}</strong> },
+                  { key: "players", label: "Unique Players", render: r => <strong style={{ color: "#06b6d4" }}>{r.players}</strong> },
                 ]}
               />
             </div>
