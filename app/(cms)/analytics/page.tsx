@@ -95,8 +95,8 @@ export default function AnalyticsPage() {
     const [{ data: regData }, { data: scoreData }, { data: topData }, { data: wheelData }] = await Promise.all([
       supabase.from("profiles").select("created_at").gte("created_at", from).lte("created_at", to),
       supabase.from("scores").select("played_at").gte("played_at", from).lte("played_at", to),
-      // scores table has display_name and username directly
-      supabase.from("scores").select("user_id, username, display_name, score").order("score", { ascending: false }).limit(200),
+      // scores table has display_name and username directly — filtered to selected period
+      supabase.from("scores").select("user_id, username, display_name, score").gte("played_at", from).lte("played_at", to).order("score", { ascending: false }).limit(200),
       supabase.from("wheel_rewards").select("prize_title, claimed_at").gte("claimed_at", from).lte("claimed_at", to),
     ]);
 
