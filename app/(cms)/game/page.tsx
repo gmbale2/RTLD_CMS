@@ -30,7 +30,13 @@ function laInputToISO(local: string): string | null {
   return new Date(utcGuess.getTime() + diff).toISOString();
 }
 
-const SEGMENT_TYPES = ["discount", "score", "product", "free_item", "spin_again", "nothing"];
+const SEGMENT_TYPES = [
+  { value: "multiplier",   label: "Multiplier (×points)" },
+  { value: "addup",        label: "Add Points (+pts)" },
+  { value: "discount",     label: "Discount Code" },
+  { value: "shopify",      label: "Shopify / Free Product" },
+  { value: "out_of_luck",  label: "No Prize" },
+];
 
 export default function GamePage() {
   const [configId, setConfigId] = useState<string | null>(null);
@@ -222,7 +228,7 @@ export default function GamePage() {
                   <Toggle value={seg.enabled} onChange={v => { updateSegment(seg.position, "enabled", v); }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)" }}>{seg.label || `Segment ${seg.position}`}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{seg.type} · {seg.odds ?? 0}%</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{SEGMENT_TYPES.find(t => t.value === seg.type)?.label ?? seg.type} · {seg.odds ?? 0}%</div>
                   </div>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     <input
@@ -255,38 +261,48 @@ export default function GamePage() {
                     <div>
                       <div style={fieldLabel}>Type</div>
                       <select value={seg.type ?? ""} onChange={e => updateSegment(seg.position, "type", e.target.value)} style={{ width: "100%" }}>
-                        {SEGMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                        {!SEGMENT_TYPES.includes(seg.type) && seg.type && <option value={seg.type}>{seg.type}</option>}
+                        {SEGMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        {!SEGMENT_TYPES.find(t => t.value === seg.type) && seg.type && <option value={seg.type}>{seg.type}</option>}
                       </select>
                     </div>
 
-                    {/* discount only */}
+                    {/* multiplier — score_value is the multiplier factor (e.g. 2 = ×2) */}
+                    {seg.type === "multiplier" && (
+                      <div>
+                        <div style={fieldLabel}>Multiplier (e.g. 2 = ×2 points)</div>
+                        <input type="number" min={1} step={0.5} value={seg.score_value ?? ""} onChange={e => updateSegment(seg.position, "score_value", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder="e.g. 2" />
+                      </div>
+                    )}
+
+                    {/* addup — score_value is flat points added */}
+                    {seg.type === "addup" && (
+                      <div>
+                        <div style={fieldLabel}>Points to Add</div>
+                        <input type="number" min={0} value={seg.score_value ?? ""} onChange={e => updateSegment(seg.position, "score_value", e.target.value === "" ? null : parseInt(e.target.value))} placeholder="e.g. 1000" />
+                      </div>
+                    )}
+
+                    {/* discount */}
                     {seg.type === "discount" && <>
                       <div>
                         <div style={fieldLabel}>Discount %</div>
-                        <input type="number" min={0} max={100} value={seg.discount_pct ?? ""} onChange={e => updateSegment(seg.position, "discount_pct", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder="e.g. 10" />
+                        <input type="number" min={0} max={100} value={seg.discount_pct ?? ""} onChange={e => updateSegment(seg.position, "discount_pct", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder="e.g. 20" />
                       </div>
                       <div>
                         <div style={fieldLabel}>Discount Code</div>
-                        <input value={seg.discount_code ?? ""} onChange={e => updateSegment(seg.position, "discount_code", e.target.value || null)} placeholder="e.g. SPIN10" />
+                        <input value={seg.discount_code ?? ""} onChange={e => updateSegment(seg.position, "discount_code", e.target.value || null)} placeholder="e.g. SPIN20" />
                       </div>
                     </>}
 
-                    {/* score only */}
-                    {seg.type === "score" && (
+                    {/* shopify / free product */}
+                    {seg.type === "shopify" && (
                       <div style={{ gridColumn: "1 / -1" }}>
-                        <div style={fieldLabel}>Score Value (bonus pts)</div>
-                        <input type="number" value={seg.score_value ?? ""} onChange={e => updateSegment(seg.position, "score_value", e.target.value === "" ? null : parseInt(e.target.value))} placeholder="e.g. 500" />
+                        <div style={fieldLabel}>Shopify Product URL</div>
+                        <input value={seg.shopify_url ?? ""} onChange={e => updateSegment(seg.position, "shopify_url", e.target.value || null)} placeholder="https://returnofthelivingdead.com/..." />
                       </div>
                     )}
 
-                    {/* product / free_item only */}
-                    {(seg.type === "product" || seg.type === "free_item") && (
-                      <div style={{ gridColumn: "1 / -1" }}>
-                        <div style={fieldLabel}>Shopify Product URL</div>
-                        <input value={seg.shopify_url ?? ""} onChange={e => updateSegment(seg.position, "shopify_url", e.target.value || null)} placeholder="https://..." />
-                      </div>
-                    )}
+                    {/* out_of_luck — no special fields, result copy handles messaging */}
 
                     {/* Always shown — result copy & email */}
                     <div>
