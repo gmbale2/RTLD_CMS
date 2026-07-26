@@ -247,6 +247,7 @@ export default function GamePage() {
                 {/* Expanded detail */}
                 {expanded && (
                   <div style={{ padding: "16px", borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                    {/* Always shown */}
                     <div>
                       <div style={fieldLabel}>Label (shown on wheel)</div>
                       <input value={seg.label ?? ""} onChange={e => updateSegment(seg.position, "label", e.target.value)} placeholder="e.g. 10% Off" />
@@ -259,24 +260,35 @@ export default function GamePage() {
                       </select>
                     </div>
 
-                    <div>
-                      <div style={fieldLabel}>Discount %</div>
-                      <input type="number" min={0} max={100} value={seg.discount_pct ?? ""} onChange={e => updateSegment(seg.position, "discount_pct", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder="e.g. 10" />
-                    </div>
-                    <div>
-                      <div style={fieldLabel}>Discount Code</div>
-                      <input value={seg.discount_code ?? ""} onChange={e => updateSegment(seg.position, "discount_code", e.target.value || null)} placeholder="e.g. SPIN10" />
-                    </div>
+                    {/* discount only */}
+                    {seg.type === "discount" && <>
+                      <div>
+                        <div style={fieldLabel}>Discount %</div>
+                        <input type="number" min={0} max={100} value={seg.discount_pct ?? ""} onChange={e => updateSegment(seg.position, "discount_pct", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder="e.g. 10" />
+                      </div>
+                      <div>
+                        <div style={fieldLabel}>Discount Code</div>
+                        <input value={seg.discount_code ?? ""} onChange={e => updateSegment(seg.position, "discount_code", e.target.value || null)} placeholder="e.g. SPIN10" />
+                      </div>
+                    </>}
 
-                    <div>
-                      <div style={fieldLabel}>Score Value (bonus pts)</div>
-                      <input type="number" value={seg.score_value ?? ""} onChange={e => updateSegment(seg.position, "score_value", e.target.value === "" ? null : parseInt(e.target.value))} placeholder="e.g. 500" />
-                    </div>
-                    <div>
-                      <div style={fieldLabel}>Shopify Product URL</div>
-                      <input value={seg.shopify_url ?? ""} onChange={e => updateSegment(seg.position, "shopify_url", e.target.value || null)} placeholder="https://..." />
-                    </div>
+                    {/* score only */}
+                    {seg.type === "score" && (
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <div style={fieldLabel}>Score Value (bonus pts)</div>
+                        <input type="number" value={seg.score_value ?? ""} onChange={e => updateSegment(seg.position, "score_value", e.target.value === "" ? null : parseInt(e.target.value))} placeholder="e.g. 500" />
+                      </div>
+                    )}
 
+                    {/* product / free_item only */}
+                    {(seg.type === "product" || seg.type === "free_item") && (
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <div style={fieldLabel}>Shopify Product URL</div>
+                        <input value={seg.shopify_url ?? ""} onChange={e => updateSegment(seg.position, "shopify_url", e.target.value || null)} placeholder="https://..." />
+                      </div>
+                    )}
+
+                    {/* Always shown — result copy & email */}
                     <div>
                       <div style={fieldLabel}>Result Title</div>
                       <input value={seg.result_title ?? ""} onChange={e => updateSegment(seg.position, "result_title", e.target.value || null)} placeholder="You won 10% off!" />
@@ -285,7 +297,6 @@ export default function GamePage() {
                       <div style={fieldLabel}>Result Description</div>
                       <input value={seg.result_desc ?? ""} onChange={e => updateSegment(seg.position, "result_desc", e.target.value || null)} placeholder="Use code SPIN10 at checkout" />
                     </div>
-
                     <div style={{ gridColumn: "1 / -1" }}>
                       <div style={fieldLabel}>Email Body</div>
                       <textarea rows={3} value={seg.email_body ?? ""} onChange={e => updateSegment(seg.position, "email_body", e.target.value || null)} placeholder="Congrats! Here's your reward…" style={{ resize: "vertical" }} />
