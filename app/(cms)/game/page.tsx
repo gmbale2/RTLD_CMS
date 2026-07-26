@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { WheelSegment, Prize, CmsConfig } from "@/lib/types";
 
-// Convert UTC ISO → datetime-local value in LA time
 function isoToLAInput(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -18,7 +17,6 @@ function isoToLAInput(iso: string | null): string {
   return `${p.year}-${p.month}-${p.day}T${h}:${p.minute}`;
 }
 
-// Convert datetime-local value (entered as LA time) → UTC ISO
 function laInputToISO(local: string): string | null {
   if (!local) return null;
   const utcGuess = new Date(local + ":00Z");
@@ -27,20 +25,22 @@ function laInputToISO(local: string): string | null {
     year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", hour12: false,
   }).format(utcGuess);
-  // laShown: "2024-08-01, 07:00" — the diff tells us the offset
   const laDate = new Date(laShown.replace(", ", "T") + ":00Z");
   const diff = utcGuess.getTime() - laDate.getTime();
   return new Date(utcGuess.getTime() + diff).toISOString();
 }
+
+const SEGMENT_TYPES = ["discount", "score", "product", "free_item", "spin_again", "nothing"];
 
 export default function GamePage() {
   const [configId, setConfigId] = useState<string | null>(null);
   const [wheelEnabled, setWheelEnabled] = useState(false);
   const [scoreThreshold, setScoreThreshold] = useState("20000");
   const [segments, setSegments] = useState<WheelSegment[]>([]);
+  const [expandedSeg, setExpandedSeg] = useState<number | null>(null);
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [configMsg, setConfigMsg] = useState("");
-  const [oddsMsg, setOddsMsg] = useState("");
+  const [segMsg, setSegMsg] = useState("");
   const [prizeMsgs, setPrizeMsgs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -77,23 +77,31 @@ export default function GamePage() {
     setTimeout(() => setConfigMsg(""), 3000);
   }
 
-  async function saveAllOdds() {
+  function updateSegment(position: number, field: keyof WheelSegment, value: unknown) {
+    setSegments(prev => prev.map(s => s.position === position ? { ...s, [field]: value } : s));
+  }
+
+  async function saveAllSegments() {
     const supabase = createClient();
     const updates = segments.map(s =>
-      supabase.from("wheel_segments").update({ odds: s.odds, enabled: s.enabled }).eq("position", s.position)
+      supabase.from("wheel_segments").update({
+        label: s.label,
+        type: s.type,
+        odds: s.odds,
+        enabled: s.enabled,
+        discount_pct: s.discount_pct,
+        discount_code: s.discount_code,
+        score_value: s.score_value,
+        shopify_url: s.shopify_url,
+        result_title: s.result_title,
+        result_desc: s.result_desc,
+        email_body: s.email_body,
+      }).eq("position", s.position)
     );
     const results = await Promise.all(updates);
     const err = results.find(r => r.error);
-    setOddsMsg(err ? `Error: ${err.error!.message}` : "Odds saved ✓");
-    setTimeout(() => setOddsMsg(""), 3000);
-  }
-
-  function updateSegmentOdds(position: number, odds: number) {
-    setSegments(prev => prev.map(s => s.position === position ? { ...s, odds } : s));
-  }
-
-  function toggleSegment(position: number, enabled: boolean) {
-    setSegments(prev => prev.map(s => s.position === position ? { ...s, enabled } : s));
+    setSegMsg(err ? `Error: ${err.error!.message}` : "All segments saved ✓");
+    setTimeout(() => setSegMsg(""), 3000);
   }
 
   async function savePrize(prize: Prize) {
@@ -115,6 +123,17 @@ export default function GamePage() {
 
   function updatePrize(id: string, field: keyof Prize, value: unknown) {
     setPrizes(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+  }
+
+  async function togglePrizeActive(prize: Prize, active: boolean) {
+    updatePrize(prize.id, "active", active);
+    const supabase = createClient();
+    const { error } = await supabase.from("prizes").update({ active }).eq("id", prize.id);
+    if (error) {
+      updatePrize(prize.id, "active", !active);
+      setPrizeMsgs(prev => ({ ...prev, [prize.id]: `Error: ${error.message}` }));
+      setTimeout(() => setPrizeMsgs(prev => { const n = { ...prev }; delete n[prize.id]; return n; }), 3000);
+    }
   }
 
   async function createPrize() {
@@ -141,7 +160,7 @@ export default function GamePage() {
   const oddsOk = Math.abs(totalOdds - 100) < 0.5;
 
   return (
-    <div style={{ maxWidth: 820 }}>
+    <div style={{ maxWidth: 860 }}>
       <h1 style={h1}>Game Controls</h1>
       <p style={muted}>Wheel settings and prize management</p>
 
@@ -174,50 +193,108 @@ export default function GamePage() {
         </div>
       </section>
 
-      {/* Segment Odds */}
+      {/* Segments */}
       <section style={{ ...card, marginTop: 20 }}>
         <div style={{ ...rowBetween, marginBottom: 20 }}>
-          <div style={sectionTitle}>Segment Odds</div>
+          <div>
+            <div style={sectionTitle}>Wheel Segments</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+              Enabled odds must total 100% —{" "}
+              <span style={{ fontWeight: 700, color: oddsOk ? "var(--green)" : "var(--yellow)" }}>
+                currently {totalOdds.toFixed(1)}% {oddsOk ? "✓" : "⚠"}
+              </span>
+            </div>
+          </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: oddsOk ? "var(--green)" : "var(--yellow)" }}>
-              Total: {totalOdds.toFixed(1)}% {oddsOk ? "✓" : "(must equal 100%)"}
-            </span>
-            <button onClick={saveAllOdds} style={btnPrimary}>Save Odds</button>
+            {segMsg && <span style={{ fontSize: 13, color: segMsg.startsWith("Error") ? "var(--red)" : "var(--green)" }}>{segMsg}</span>}
+            <button onClick={saveAllSegments} style={btnPrimary}>Save All Segments</button>
           </div>
         </div>
 
-        {oddsMsg && (
-          <div style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 6, background: oddsMsg.startsWith("Error") ? "#fef2f2" : "#f0fdf4", color: oddsMsg.startsWith("Error") ? "var(--red)" : "var(--green)", fontSize: 13, border: `1px solid ${oddsMsg.startsWith("Error") ? "#fecaca" : "#bbf7d0"}` }}>
-            {oddsMsg}
-          </div>
-        )}
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          {segments.map(seg => (
-            <div key={seg.position} style={{ display: "flex", gap: 16, alignItems: "center", padding: "14px 16px", background: "var(--bg-base)", borderRadius: 8, border: "1px solid var(--border)" }}>
-              <Toggle value={seg.enabled} onChange={v => toggleSegment(seg.position, v)} />
-              <div style={{ flex: 1, opacity: seg.enabled ? 1 : 0.4 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text)" }}>{seg.label}</div>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <input
-                    type="range" min={0} max={100} step={0.5}
-                    value={seg.odds ?? 0}
-                    disabled={!seg.enabled}
-                    onChange={e => updateSegmentOdds(seg.position, parseFloat(e.target.value))}
-                    style={{ flex: 1, accentColor: "var(--purple)" }}
-                  />
-                  <input
-                    type="number" min={0} max={100} step={0.5}
-                    value={seg.odds ?? 0}
-                    disabled={!seg.enabled}
-                    onChange={e => updateSegmentOdds(seg.position, parseFloat(e.target.value) || 0)}
-                    style={{ width: 80, textAlign: "center", fontWeight: 700, color: "var(--purple)" }}
-                  />
-                  <span style={{ fontSize: 12, color: "var(--text-muted)", width: 16 }}>%</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {segments.map(seg => {
+            const expanded = expandedSeg === seg.position;
+            return (
+              <div key={seg.position} style={{ border: `1px solid ${expanded ? "var(--purple)" : "var(--border)"}`, borderRadius: 10, overflow: "hidden", opacity: seg.enabled ? 1 : 0.65 }}>
+                {/* Header row */}
+                <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "12px 16px", background: "var(--bg-base)", cursor: "pointer" }}
+                  onClick={() => setExpandedSeg(expanded ? null : seg.position)}>
+                  <Toggle value={seg.enabled} onChange={v => { updateSegment(seg.position, "enabled", v); }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)" }}>{seg.label || `Segment ${seg.position}`}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{seg.type} · {seg.odds ?? 0}%</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <input
+                      type="range" min={0} max={100} step={0.5}
+                      value={seg.odds ?? 0}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => { e.stopPropagation(); updateSegment(seg.position, "odds", parseFloat(e.target.value)); }}
+                      style={{ width: 120, accentColor: "var(--purple)" }}
+                    />
+                    <input
+                      type="number" min={0} max={100} step={0.5}
+                      value={seg.odds ?? 0}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => { e.stopPropagation(); updateSegment(seg.position, "odds", parseFloat(e.target.value) || 0); }}
+                      style={{ width: 70, textAlign: "center", fontWeight: 700, color: "var(--purple)" }}
+                    />
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>%</span>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8 }}>{expanded ? "▲" : "▼"}</span>
+                  </div>
                 </div>
+
+                {/* Expanded detail */}
+                {expanded && (
+                  <div style={{ padding: "16px", borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                    <div>
+                      <div style={fieldLabel}>Label (shown on wheel)</div>
+                      <input value={seg.label ?? ""} onChange={e => updateSegment(seg.position, "label", e.target.value)} placeholder="e.g. 10% Off" />
+                    </div>
+                    <div>
+                      <div style={fieldLabel}>Type</div>
+                      <select value={seg.type ?? ""} onChange={e => updateSegment(seg.position, "type", e.target.value)} style={{ width: "100%" }}>
+                        {SEGMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        {!SEGMENT_TYPES.includes(seg.type) && seg.type && <option value={seg.type}>{seg.type}</option>}
+                      </select>
+                    </div>
+
+                    <div>
+                      <div style={fieldLabel}>Discount %</div>
+                      <input type="number" min={0} max={100} value={seg.discount_pct ?? ""} onChange={e => updateSegment(seg.position, "discount_pct", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder="e.g. 10" />
+                    </div>
+                    <div>
+                      <div style={fieldLabel}>Discount Code</div>
+                      <input value={seg.discount_code ?? ""} onChange={e => updateSegment(seg.position, "discount_code", e.target.value || null)} placeholder="e.g. SPIN10" />
+                    </div>
+
+                    <div>
+                      <div style={fieldLabel}>Score Value (bonus pts)</div>
+                      <input type="number" value={seg.score_value ?? ""} onChange={e => updateSegment(seg.position, "score_value", e.target.value === "" ? null : parseInt(e.target.value))} placeholder="e.g. 500" />
+                    </div>
+                    <div>
+                      <div style={fieldLabel}>Shopify Product URL</div>
+                      <input value={seg.shopify_url ?? ""} onChange={e => updateSegment(seg.position, "shopify_url", e.target.value || null)} placeholder="https://..." />
+                    </div>
+
+                    <div>
+                      <div style={fieldLabel}>Result Title</div>
+                      <input value={seg.result_title ?? ""} onChange={e => updateSegment(seg.position, "result_title", e.target.value || null)} placeholder="You won 10% off!" />
+                    </div>
+                    <div>
+                      <div style={fieldLabel}>Result Description</div>
+                      <input value={seg.result_desc ?? ""} onChange={e => updateSegment(seg.position, "result_desc", e.target.value || null)} placeholder="Use code SPIN10 at checkout" />
+                    </div>
+
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <div style={fieldLabel}>Email Body</div>
+                      <textarea rows={3} value={seg.email_body ?? ""} onChange={e => updateSegment(seg.position, "email_body", e.target.value || null)} placeholder="Congrats! Here's your reward…" style={{ resize: "vertical" }} />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -229,12 +306,21 @@ export default function GamePage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {prizes.map(prize => (
-            <div key={prize.id} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "20px" }}>
+            <div key={prize.id} style={{ border: `1px solid ${prize.active ? "var(--green)" : "var(--border)"}`, borderRadius: 10, padding: "20px" }}>
               <div style={{ ...rowBetween, marginBottom: 18 }}>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{prize.name}</div>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Active</span>
-                  <Toggle value={prize.active} onChange={v => updatePrize(prize.id, "active", v)} />
+                  <input
+                    value={prize.name ?? ""}
+                    onChange={e => updatePrize(prize.id, "name", e.target.value)}
+                    style={{ fontWeight: 700, fontSize: 15, border: "none", borderBottom: "1px solid var(--border)", background: "transparent", outline: "none", padding: "2px 4px", color: "var(--text)", width: 240 }}
+                    placeholder="Prize name"
+                  />
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: prize.active ? "var(--green)" : "var(--text-muted)" }}>
+                    {prize.active ? "Active" : "Inactive"}
+                  </span>
+                  <Toggle value={prize.active} onChange={v => togglePrizeActive(prize, v)} />
                 </div>
               </div>
 
@@ -249,20 +335,12 @@ export default function GamePage() {
                 </div>
 
                 <div>
-                  <div style={fieldLabel}>Period Start <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(Los Angeles time)</span></div>
-                  <input
-                    type="datetime-local"
-                    value={isoToLAInput(prize.period_start)}
-                    onChange={e => updatePrize(prize.id, "period_start", laInputToISO(e.target.value))}
-                  />
+                  <div style={fieldLabel}>Period Start <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(LA time)</span></div>
+                  <input type="datetime-local" value={isoToLAInput(prize.period_start)} onChange={e => updatePrize(prize.id, "period_start", laInputToISO(e.target.value))} />
                 </div>
                 <div>
                   <div style={fieldLabel}>Period End <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(blank = ongoing)</span></div>
-                  <input
-                    type="datetime-local"
-                    value={isoToLAInput(prize.period_end)}
-                    onChange={e => updatePrize(prize.id, "period_end", laInputToISO(e.target.value) || null as unknown as string)}
-                  />
+                  <input type="datetime-local" value={isoToLAInput(prize.period_end)} onChange={e => updatePrize(prize.id, "period_end", laInputToISO(e.target.value) || null as unknown as string)} />
                 </div>
 
                 <div>
@@ -281,7 +359,7 @@ export default function GamePage() {
               </div>
 
               <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 16 }}>
-                <button onClick={() => savePrize(prize)} style={{ ...btnPrimary, width: "auto", padding: "9px 22px" }}>
+                <button onClick={() => savePrize(prize)} style={{ ...btnPrimary, padding: "9px 22px" }}>
                   Save Prize
                 </button>
                 <button onClick={() => deletePrize(prize.id)} style={{ ...btnSecondary, color: "var(--red)", borderColor: "var(--red)" }}>
@@ -303,7 +381,7 @@ export default function GamePage() {
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button onClick={() => onChange(!value)} style={{
+    <button onClick={e => { e.stopPropagation(); onChange(!value); }} style={{
       width: 44, height: 24, borderRadius: 12, flexShrink: 0,
       background: value ? "var(--purple)" : "#d1d5db",
       border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s",
