@@ -304,7 +304,7 @@ export default function GamePage() {
 
                     {/* out_of_luck — no special fields, result copy handles messaging */}
 
-                    {/* Always shown — result copy & email */}
+                    {/* Always shown — result copy */}
                     <div>
                       <div style={fieldLabel}>Result Title</div>
                       <input value={seg.result_title ?? ""} onChange={e => updateSegment(seg.position, "result_title", e.target.value || null)} placeholder="You won 10% off!" />
@@ -313,10 +313,13 @@ export default function GamePage() {
                       <div style={fieldLabel}>Result Description</div>
                       <input value={seg.result_desc ?? ""} onChange={e => updateSegment(seg.position, "result_desc", e.target.value || null)} placeholder="Use code SPIN10 at checkout" />
                     </div>
-                    <div style={{ gridColumn: "1 / -1" }}>
-                      <div style={fieldLabel}>Email Body</div>
-                      <textarea rows={3} value={seg.email_body ?? ""} onChange={e => updateSegment(seg.position, "email_body", e.target.value || null)} placeholder="Congrats! Here's your reward…" style={{ resize: "vertical" }} />
-                    </div>
+                    {/* Email body — not applicable for point rewards */}
+                    {seg.type !== "multiplier" && seg.type !== "addup" && (
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <div style={fieldLabel}>Email Body</div>
+                        <textarea rows={3} value={seg.email_body ?? ""} onChange={e => updateSegment(seg.position, "email_body", e.target.value || null)} placeholder="Congrats! Here's your reward…" style={{ resize: "vertical" }} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
