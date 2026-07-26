@@ -107,7 +107,7 @@ export default function AnalyticsPage() {
       const day = r.created_at.slice(0, 10);
       regByDay[day] = (regByDay[day] ?? 0) + 1;
     });
-    setRegistrations(Object.entries(regByDay).sort().map(([date, count]) => ({ date, count })));
+    setRegistrations(Object.entries(regByDay).sort().map(([date, count]) => ({ date, count, players: 0 })));
     setTotalRegs(regData?.length ?? 0);
 
     // Games by day + unique players per day
