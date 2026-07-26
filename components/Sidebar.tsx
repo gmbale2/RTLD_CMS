@@ -23,10 +23,9 @@ export default function Sidebar() {
 
   return (
     <aside style={{
-      width: 220,
+      width: 224,
       minHeight: "100vh",
-      background: "var(--bg-surface)",
-      borderRight: "1px solid var(--border)",
+      background: "var(--sidebar-bg)",
       display: "flex",
       flexDirection: "column",
       position: "fixed",
@@ -34,57 +33,38 @@ export default function Sidebar() {
       left: 0,
       zIndex: 10,
     }}>
-      {/* Logo */}
-      <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ fontSize: 22, fontWeight: 900, color: "var(--purple)", letterSpacing: 3 }}>RTLD</div>
-        <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: 2, marginTop: 2 }}>MORE BRAINS CMS</div>
+      <div style={{ padding: "28px 20px 22px" }}>
+        <div style={{ fontSize: 20, fontWeight: 900, color: "#fff", letterSpacing: 4 }}>RTLD</div>
+        <div style={{ fontSize: 10, color: "var(--sidebar-muted)", letterSpacing: 2, marginTop: 3, textTransform: "uppercase" }}>More Brains CMS</div>
       </div>
 
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: "16px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+      <nav style={{ flex: 1, padding: "8px 12px", display: "flex", flexDirection: "column", gap: 2 }}>
         {NAV.map(({ href, label, icon }) => {
           const active = pathname.startsWith(href);
           return (
-            <Link
-              key={href}
-              href={href}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 12px",
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: active ? 700 : 400,
-                color: active ? "var(--purple)" : "var(--text)",
-                background: active ? "rgba(204,0,255,0.08)" : "transparent",
-                textDecoration: "none",
-                transition: "all 0.1s",
-              }}
-            >
-              <span style={{ fontSize: 16 }}>{icon}</span>
+            <Link key={href} href={href} style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "10px 12px", borderRadius: 8, fontSize: 13,
+              fontWeight: active ? 600 : 400,
+              color: active ? "#fff" : "var(--sidebar-text)",
+              background: active ? "rgba(255,255,255,0.12)" : "transparent",
+              textDecoration: "none", transition: "all 0.15s",
+              borderLeft: active ? "3px solid #a78bfa" : "3px solid transparent",
+            }}>
+              <span style={{ fontSize: 15 }}>{icon}</span>
               {label}
             </Link>
           );
         })}
       </nav>
 
-      {/* Logout */}
-      <div style={{ padding: "16px 12px", borderTop: "1px solid var(--border)" }}>
-        <button
-          onClick={handleLogout}
-          style={{
-            width: "100%",
-            background: "transparent",
-            border: "1px solid var(--border)",
-            color: "var(--text-muted)",
-            borderRadius: 8,
-            padding: "8px 12px",
-            fontSize: 12,
-            cursor: "pointer",
-            letterSpacing: 1,
-          }}
-        >
+      <div style={{ padding: "16px 12px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <button onClick={handleLogout} style={{
+          width: "100%", background: "transparent",
+          border: "1px solid rgba(255,255,255,0.15)",
+          color: "var(--sidebar-text)", borderRadius: 8,
+          padding: "8px 12px", fontSize: 12, cursor: "pointer",
+        }}>
           Sign Out
         </button>
       </div>

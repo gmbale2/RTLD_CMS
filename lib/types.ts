@@ -43,6 +43,7 @@ export interface CmsConfig {
 export interface Profile {
   id: string;
   display_name: string | null;
+  username: string | null;
   email?: string | null;
   score: number;
   hidden: boolean | null;
