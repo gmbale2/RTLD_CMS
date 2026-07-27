@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { WheelSegment, Prize, CmsConfig } from "@/lib/types";
 
@@ -49,6 +49,8 @@ export default function GamePage() {
   const [segMsg, setSegMsg] = useState("");
   const [prizeMsgs, setPrizeMsgs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [newPrizeId, setNewPrizeId] = useState<string | null>(null);
+  const prizeRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   async function load() {
     const supabase = createClient();
@@ -68,6 +70,17 @@ export default function GamePage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (!newPrizeId) return;
+    const el = prizeRefs.current[newPrizeId];
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.style.outline = "2px solid var(--purple)";
+    el.style.transition = "outline 0.5s";
+    setTimeout(() => { el.style.outline = "none"; }, 2000);
+    setNewPrizeId(null);
+  }, [newPrizeId]);
 
   async function saveConfig() {
     if (!configId) return;
@@ -181,20 +194,30 @@ export default function GamePage() {
   }
 
   async function createPrize() {
-    const supabase = createClient();
-    const now = new Date();
-    const monthLater = new Date(now); monthLater.setDate(monthLater.getDate() + 30);
-    const { data, error } = await supabase.from("prizes").insert({
-      title: "New Prize",
-      description: "",
-      enabled: false,
-      period_start: now.toISOString(),
-      period_end: monthLater.toISOString(),
-      rank_from: 1,
-      rank_to: 1,
-    }).select().single();
-    if (error) { alert(`Error: ${error.message}`); return; }
-    setPrizes(prev => [...prev, data as Prize]);
+    try {
+      const supabase = createClient();
+      const now = new Date();
+      const monthLater = new Date(now); monthLater.setDate(monthLater.getDate() + 30);
+      const { data, error } = await supabase.from("prizes").insert({
+        title: "New Prize",
+        description: "",
+        enabled: false,
+        period_start: now.toISOString(),
+        period_end: monthLater.toISOString(),
+        rank_from: 1,
+        rank_to: 1,
+      }).select("*");
+      if (error) { alert(`Error creating prize: ${error.message}`); return; }
+      if (!data || data.length === 0) {
+        await load();
+        return;
+      }
+      const created = data[0] as Prize;
+      setPrizes(prev => [...prev, created]);
+      setNewPrizeId(created.id);
+    } catch (e) {
+      alert(`Unexpected error: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   async function deletePrize(id: string) {
@@ -380,7 +403,7 @@ export default function GamePage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {prizes.map(prize => (
-            <div key={prize.id} style={{ border: `1px solid ${prizeStatus(prize).borderColor}`, borderRadius: 10, padding: "20px" }}>
+            <div key={prize.id} ref={el => { prizeRefs.current[prize.id] = el; }} style={{ border: `1px solid ${prizeStatus(prize).borderColor}`, borderRadius: 10, padding: "20px" }}>
               <div style={{ ...rowBetween, marginBottom: 18 }}>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                   <input
