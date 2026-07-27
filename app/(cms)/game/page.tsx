@@ -111,6 +111,14 @@ export default function GamePage() {
   }
 
   async function savePrize(prize: Prize) {
+    if (prize.enabled) {
+      const conflict = findOverlap(prize, prizes);
+      if (conflict) {
+        setPrizeMsgs(prev => ({ ...prev, [prize.id]: `Dates overlap with "${conflict.title}" — fix dates first` }));
+        setTimeout(() => setPrizeMsgs(prev => { const n = { ...prev }; delete n[prize.id]; return n; }), 4000);
+        return;
+      }
+    }
     const supabase = createClient();
     const { error } = await supabase.from("prizes").update({
       title: prize.title,
@@ -131,7 +139,27 @@ export default function GamePage() {
     setPrizes(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
   }
 
+  function findOverlap(candidate: Prize, others: Prize[]): Prize | undefined {
+    if (!candidate.period_start) return undefined;
+    const aStart = new Date(candidate.period_start).getTime();
+    const aEnd = candidate.period_end ? new Date(candidate.period_end).getTime() : Infinity;
+    return others.find(p => {
+      if (p.id === candidate.id || !p.enabled || !p.period_start) return false;
+      const bStart = new Date(p.period_start).getTime();
+      const bEnd = p.period_end ? new Date(p.period_end).getTime() : Infinity;
+      return aStart < bEnd && aEnd > bStart;
+    });
+  }
+
   async function togglePrizeActive(prize: Prize, enabled: boolean) {
+    if (enabled) {
+      const conflict = findOverlap({ ...prize, enabled: true }, prizes);
+      if (conflict) {
+        setPrizeMsgs(prev => ({ ...prev, [prize.id]: `Dates overlap with "${conflict.title}" — fix dates first` }));
+        setTimeout(() => setPrizeMsgs(prev => { const n = { ...prev }; delete n[prize.id]; return n; }), 4000);
+        return;
+      }
+    }
     updatePrize(prize.id, "enabled", enabled);
     const supabase = createClient();
     const { error } = await supabase.from("prizes").update({ enabled }).eq("id", prize.id);
