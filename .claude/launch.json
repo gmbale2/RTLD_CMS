@@ -3,9 +3,10 @@
   "configurations": [
     {
       "name": "rtld-cms",
-      "runtimeExecutable": "npm",
+      "runtimeExecutable": "pnpm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3100
+      "port": 3100,
+      "cwd": "."
     }
   ]
 }

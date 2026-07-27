@@ -9,6 +9,7 @@ const NAV = [
   { href: "/push",          label: "Push Notifs",    icon: "🔔" },
   { href: "/analytics",     label: "Analytics",      icon: "📊" },
   { href: "/prize-winners", label: "Prize Winners",  icon: "🏆" },
+  { href: "/movie-updates", label: "Movie Updates",  icon: "🎬" },
 ];
 
 export default function Sidebar() {

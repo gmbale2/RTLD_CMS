@@ -425,14 +425,16 @@ export default function GamePage() {
           </div>
         )}
         {(() => {
-          const byStart = (a: Prize, b: Prize) =>
+          const statusOrder = (p: Prize) => prizeStatus(p).label === "Active" ? 0 : 1;
+          const byStatusThenStart = (a: Prize, b: Prize) =>
+            statusOrder(a) - statusOrder(b) ||
             new Date(b.period_start ?? 0).getTime() - new Date(a.period_start ?? 0).getTime();
           const current = prizes
             .filter(p => { const s = prizeStatus(p).label; return s === "Active" || s === "Scheduled"; })
-            .sort(byStart);
+            .sort(byStatusThenStart);
           const older = prizes
             .filter(p => { const s = prizeStatus(p).label; return s === "Ended" || s === "Disabled"; })
-            .sort(byStart);
+            .sort((a, b) => new Date(b.period_start ?? 0).getTime() - new Date(a.period_start ?? 0).getTime());
           return (
             <>
               <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>

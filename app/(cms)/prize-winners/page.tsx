@@ -23,6 +23,7 @@ interface WheelWinner {
   username: string | null;
   display_name: string | null;
   email: string | null;
+  country: string | null;
   prize_title: string;
   prize_desc: string | null;
   score: number;
@@ -71,18 +72,19 @@ export default function PrizeWinnersPage() {
     // Fetch profiles for wheel winners to get display_name + email
     const wheelRows = (wheelData ?? []) as WheelWinner[];
     const userIds = [...new Set(wheelRows.map(r => r.user_id).filter(Boolean))];
-    let profileMap: Record<string, { display_name: string | null; email: string | null }> = {};
+    let profileMap: Record<string, { display_name: string | null; email: string | null; country: string | null }> = {};
     if (userIds.length > 0) {
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, display_name, email")
+        .select("id, display_name, email, country")
         .in("id", userIds);
-      (profileData ?? []).forEach(p => { profileMap[p.id] = { display_name: p.display_name, email: p.email }; });
+      (profileData ?? []).forEach(p => { profileMap[p.id] = { display_name: p.display_name, email: p.email, country: p.country }; });
     }
     setWheelWinners(wheelRows.map(r => ({
       ...r,
       display_name: profileMap[r.user_id]?.display_name ?? r.username ?? "—",
       email:        profileMap[r.user_id]?.email ?? null,
+      country:      profileMap[r.user_id]?.country ?? null,
     })));
 
     setLoading(false);
@@ -101,9 +103,9 @@ export default function PrizeWinnersPage() {
   }
 
   function exportWheelCSV() {
-    const rows = [["Prize", "Date Won", "Display Name", "Username", "Email", "Score at Spin", "Level"]];
+    const rows = [["Prize", "Date Won", "Display Name", "Username", "Email", "Country", "Score at Spin", "Level"]];
     wheelWinners.forEach(w => {
-      rows.push([w.prize_title, fmt(w.claimed_at), w.display_name ?? "", w.username ?? "", w.email ?? "", String(w.score), String(w.level)]);
+      rows.push([w.prize_title, fmt(w.claimed_at), w.display_name ?? "", w.username ?? "", w.email ?? "", w.country ?? "", String(w.score), String(w.level)]);
     });
     downloadCSV(rows, "wheel-shopify-winners.csv");
   }
@@ -196,7 +198,7 @@ export default function PrizeWinnersPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  {["Date Won", "Prize", "Display Name", "Username", "Email", "Score", "Level"].map(h => (
+                  {["Date Won", "Prize", "Display Name", "Username", "Email", "Country", "Score", "Level"].map(h => (
                     <th key={h} style={th}>{h}</th>
                   ))}
                 </tr>
@@ -211,6 +213,7 @@ export default function PrizeWinnersPage() {
                     <td style={td}>{w.display_name ?? "—"}</td>
                     <td style={{ ...td, color: "var(--text-muted)" }}>@{w.username ?? "—"}</td>
                     <td style={{ ...td, color: "var(--text-muted)" }}>{w.email ?? "—"}</td>
+                    <td style={{ ...td, color: "var(--text-muted)" }}>{w.country ?? "—"}</td>
                     <td style={{ ...td, fontWeight: 700, color: "var(--purple)", textAlign: "right" }}>{w.score.toLocaleString()}</td>
                     <td style={{ ...td, textAlign: "right" }}>{w.level}</td>
                   </tr>
