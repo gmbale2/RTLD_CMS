@@ -242,7 +242,7 @@ export default function LeaderboardPage() {
               </thead>
               <tbody>
                 {mode === "alltime"
-                  ? filtered.map((e, i) => (
+                  ? (filtered as Entry[]).map((e, i) => (
                     <tr key={e.user_id} style={{ borderBottom: "1px solid var(--border)", background: i % 2 === 0 ? "transparent" : "var(--bg-base)" }}
                       onMouseEnter={el => (el.currentTarget.style.background = "rgba(167,139,250,0.06)")}
                       onMouseLeave={(el) => (el.currentTarget.style.background = i % 2 === 0 ? "transparent" : "var(--bg-base)")}>
