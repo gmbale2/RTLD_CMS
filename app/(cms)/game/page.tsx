@@ -113,9 +113,9 @@ export default function GamePage() {
   async function savePrize(prize: Prize) {
     const supabase = createClient();
     const { error } = await supabase.from("prizes").update({
-      name: prize.name,
+      title: prize.title,
       description: prize.description,
-      active: prize.active,
+      enabled: prize.enabled,
       period_start: prize.period_start,
       period_end: prize.period_end,
       rank_from: prize.rank_from,
@@ -131,12 +131,12 @@ export default function GamePage() {
     setPrizes(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
   }
 
-  async function togglePrizeActive(prize: Prize, active: boolean) {
-    updatePrize(prize.id, "active", active);
+  async function togglePrizeActive(prize: Prize, enabled: boolean) {
+    updatePrize(prize.id, "enabled", enabled);
     const supabase = createClient();
-    const { error } = await supabase.from("prizes").update({ active }).eq("id", prize.id);
+    const { error } = await supabase.from("prizes").update({ enabled }).eq("id", prize.id);
     if (error) {
-      updatePrize(prize.id, "active", !active);
+      updatePrize(prize.id, "enabled", !enabled);
       setPrizeMsgs(prev => ({ ...prev, [prize.id]: `Error: ${error.message}` }));
       setTimeout(() => setPrizeMsgs(prev => { const n = { ...prev }; delete n[prize.id]; return n; }), 3000);
     }
@@ -145,9 +145,9 @@ export default function GamePage() {
   async function createPrize() {
     const supabase = createClient();
     const { data, error } = await supabase.from("prizes").insert({
-      name: "New Prize",
+      title: "New Prize",
       description: "",
-      active: false,
+      enabled: false,
     }).select().single();
     if (error) { alert(`Error: ${error.message}`); return; }
     setPrizes(prev => [...prev, data as Prize]);
@@ -336,21 +336,21 @@ export default function GamePage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {prizes.map(prize => (
-            <div key={prize.id} style={{ border: `1px solid ${prize.active ? "var(--green)" : "var(--border)"}`, borderRadius: 10, padding: "20px" }}>
+            <div key={prize.id} style={{ border: `1px solid ${prize.enabled ? "var(--green)" : "var(--border)"}`, borderRadius: 10, padding: "20px" }}>
               <div style={{ ...rowBetween, marginBottom: 18 }}>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                   <input
-                    value={prize.name ?? ""}
-                    onChange={e => updatePrize(prize.id, "name", e.target.value)}
+                    value={prize.title ?? ""}
+                    onChange={e => updatePrize(prize.id, "title", e.target.value)}
                     style={{ fontWeight: 700, fontSize: 15, border: "none", borderBottom: "1px solid var(--border)", background: "transparent", outline: "none", padding: "2px 4px", color: "var(--text)", width: 240 }}
-                    placeholder="Prize name"
+                    placeholder="Prize title"
                   />
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: prize.active ? "var(--green)" : "var(--text-muted)" }}>
-                    {prize.active ? "Active" : "Inactive"}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: prize.enabled ? "var(--green)" : "var(--text-muted)" }}>
+                    {prize.enabled ? "Active" : "Inactive"}
                   </span>
-                  <Toggle value={prize.active} onChange={v => togglePrizeActive(prize, v)} />
+                  <Toggle value={prize.enabled} onChange={v => togglePrizeActive(prize, v)} />
                 </div>
               </div>
 

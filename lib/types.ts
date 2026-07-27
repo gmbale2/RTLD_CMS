@@ -30,9 +30,9 @@ export interface WheelSegment {
 
 export interface Prize {
   id: string;
-  name: string;
+  title: string;
   description: string | null;
-  active: boolean;
+  enabled: boolean;
   period_start: string | null;
   period_end: string | null;
   rank_from: number | null;
