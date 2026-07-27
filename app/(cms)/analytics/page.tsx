@@ -6,7 +6,7 @@ import {
 } from "recharts";
 
 interface DayCount    { date: string; count: number; players: number; [key: string]: unknown }
-interface TopPlayer   { display_name: string; username: string; score: number; country: string; [key: string]: unknown }
+interface TopPlayer   { display_name: string; username: string; email: string; score: number; country: string; [key: string]: unknown }
 interface WheelOutcome{ label: string; count: number; [key: string]: unknown }
 interface CountryStat { country: string; count: number; [key: string]: unknown }
 interface PrizeWinner {
@@ -119,9 +119,13 @@ export default function AnalyticsPage() {
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const uniqueUserIds = [...new Set((scoreData ?? []).map(s => s.user_id).filter(id => id && UUID_RE.test(id)))];
     let userCountryMap: Record<string, string> = {};
+    let userEmailMap: Record<string, string> = {};
     if (uniqueUserIds.length > 0) {
-      const { data: profileData } = await supabase.from("profiles").select("id, country").in("id", uniqueUserIds);
-      (profileData ?? []).forEach(p => { userCountryMap[p.id] = p.country || "Unknown"; });
+      const { data: profileData } = await supabase.from("profiles").select("id, country, email").in("id", uniqueUserIds);
+      (profileData ?? []).forEach(p => {
+        userCountryMap[p.id] = p.country || "Unknown";
+        userEmailMap[p.id] = p.email || "—";
+      });
     }
 
     // Games by day + unique players + by country
@@ -150,6 +154,7 @@ export default function AnalyticsPage() {
         deduped.push({
           display_name: row.display_name || row.username || "—",
           username:     row.username || "—",
+          email:        userEmailMap[row.user_id] || "—",
           score:        row.score,
           country:      userCountryMap[row.user_id] || "—",
         });
@@ -172,8 +177,8 @@ export default function AnalyticsPage() {
 
   function exportCSV() {
     const rows = [
-      ["Rank", "Display Name", "Username", "Country", "Score"],
-      ...topPlayers.map((p, i) => [i + 1, p.display_name, p.username, p.country, p.score]),
+      ["Rank", "Display Name", "Username", "Email", "Country", "Score"],
+      ...topPlayers.map((p, i) => [i + 1, p.display_name, p.username, p.email, p.country, p.score]),
     ];
     const blob = new Blob([rows.map(r => r.join(",")).join("\n")], { type: "text/csv" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "top-scorers.csv"; a.click();
@@ -317,6 +322,8 @@ export default function AnalyticsPage() {
           </div>
           <SortableTable<TopPlayer> data={topPlayers} defaultSort="score" columns={[
             { key: "display_name", label: "Name" },
+            { key: "username",     label: "Username", render: r => <span style={{ color: "var(--text-muted)" }}>@{r.username as string}</span> },
+            { key: "email",        label: "Email",    render: r => <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{r.email as string}</span> },
             { key: "country",      label: "Country" },
             { key: "score",        label: "Score", render: r => <strong style={{ color: "var(--purple)" }}>{(r.score as number).toLocaleString()}</strong> },
           ]} />
