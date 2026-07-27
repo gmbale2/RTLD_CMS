@@ -118,6 +118,9 @@ export default function LeaderboardPrizesPage() {
   }
 
   async function uploadImage(prize: Prize, file: File) {
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) { setMsg(prize.id, "Error: Only JPG, PNG, or WebP files are accepted"); return; }
+    if (file.size > 1024 * 1024) { setMsg(prize.id, `Error: File is ${(file.size / 1024 / 1024).toFixed(1)} MB — max size is 1 MB`); return; }
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
     const path = `prize-${prize.id}.${ext}`;
     setUploadingImage(prev => ({ ...prev, [prize.id]: true }));
@@ -249,6 +252,14 @@ export default function LeaderboardPrizesPage() {
         {!dimmed && (
           <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
             <div style={fieldLabel}>Prize Image</div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: 6, padding: "8px 12px", marginBottom: 12, lineHeight: 1.6 }}>
+              <span style={{ fontWeight: 700, color: "var(--text)" }}>Specs: </span>
+              JPG / PNG / WebP &nbsp;·&nbsp;
+              Max <strong>1 MB</strong> &nbsp;·&nbsp;
+              Min <strong>300 × 300 px</strong>, max <strong>1200 × 1200 px</strong> &nbsp;·&nbsp;
+              Square or portrait preferred &nbsp;·&nbsp;
+              Displays at ~100 × 100 px in the app (use high-res source for retina screens)
+            </div>
             {prize.image_url ? (
               <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 10 }}>
                 <img src={prize.image_url} alt="Prize" style={{ width: 120, height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
