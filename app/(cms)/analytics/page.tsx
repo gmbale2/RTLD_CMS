@@ -115,7 +115,9 @@ export default function AnalyticsPage() {
     setRegByCountry(Object.entries(regCountry).map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count).slice(0, 10));
 
     // Fetch country for all players who played in this period
-    const uniqueUserIds = [...new Set((scoreData ?? []).map(s => s.user_id).filter(Boolean))];
+    // Filter to valid UUIDs only — scores.user_id is TEXT and may contain non-UUID strings
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uniqueUserIds = [...new Set((scoreData ?? []).map(s => s.user_id).filter(id => id && UUID_RE.test(id)))];
     let userCountryMap: Record<string, string> = {};
     if (uniqueUserIds.length > 0) {
       const { data: profileData } = await supabase.from("profiles").select("id, country").in("id", uniqueUserIds);
