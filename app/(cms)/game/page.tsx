@@ -139,6 +139,16 @@ export default function GamePage() {
     setPrizes(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
   }
 
+  function prizeStatus(prize: Prize): { label: string; color: string; borderColor: string } {
+    if (!prize.enabled) return { label: "Disabled", color: "var(--text-muted)", borderColor: "var(--border)" };
+    const now = Date.now();
+    const start = prize.period_start ? new Date(prize.period_start).getTime() : null;
+    const end   = prize.period_end   ? new Date(prize.period_end).getTime()   : null;
+    if (start && now < start) return { label: "Scheduled", color: "var(--yellow)", borderColor: "var(--yellow)" };
+    if (end && now > end)     return { label: "Ended",     color: "var(--red)",    borderColor: "var(--red)" };
+    return                           { label: "Active",    color: "var(--green)",  borderColor: "var(--green)" };
+  }
+
   function findOverlap(candidate: Prize, others: Prize[]): Prize | undefined {
     if (!candidate.period_start) return undefined;
     const aStart = new Date(candidate.period_start).getTime();
@@ -364,7 +374,7 @@ export default function GamePage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {prizes.map(prize => (
-            <div key={prize.id} style={{ border: `1px solid ${prize.enabled ? "var(--green)" : "var(--border)"}`, borderRadius: 10, padding: "20px" }}>
+            <div key={prize.id} style={{ border: `1px solid ${prizeStatus(prize).borderColor}`, borderRadius: 10, padding: "20px" }}>
               <div style={{ ...rowBetween, marginBottom: 18 }}>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                   <input
@@ -375,8 +385,8 @@ export default function GamePage() {
                   />
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: prize.enabled ? "var(--green)" : "var(--text-muted)" }}>
-                    {prize.enabled ? "Active" : "Inactive"}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: prizeStatus(prize).color }}>
+                    {prizeStatus(prize).label}
                   </span>
                   <Toggle value={prize.enabled} onChange={v => togglePrizeActive(prize, v)} />
                 </div>
