@@ -51,6 +51,7 @@ export default function GamePage() {
   const [saving, setSaving] = useState(false);
   const [newPrizeId, setNewPrizeId] = useState<string | null>(null);
   const [prizeCreateError, setPrizeCreateError] = useState("");
+  const [showOldPrizes, setShowOldPrizes] = useState(false);
   const prizeRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   async function load() {
@@ -423,8 +424,22 @@ export default function GamePage() {
             {prizeCreateError}
           </div>
         )}
-        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-          {prizes.map(prize => (
+        {(() => {
+          const byStart = (a: Prize, b: Prize) =>
+            new Date(b.period_start ?? 0).getTime() - new Date(a.period_start ?? 0).getTime();
+          const current = prizes
+            .filter(p => { const s = prizeStatus(p).label; return s === "Active" || s === "Scheduled"; })
+            .sort(byStart);
+          const older = prizes
+            .filter(p => { const s = prizeStatus(p).label; return s === "Ended" || s === "Disabled"; })
+            .sort(byStart);
+          return (
+            <>
+              <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+                {current.length === 0 && (
+                  <p style={{ color: "var(--text-muted)", fontSize: 13, padding: "8px 0" }}>No active or scheduled prizes.</p>
+                )}
+                {current.map(prize => (
             <div key={prize.id} ref={el => { prizeRefs.current[prize.id] = el; }} style={{ border: `1px solid ${prizeStatus(prize).borderColor}`, borderRadius: 10, padding: "20px" }}>
               <div style={{ ...rowBetween, marginBottom: 18 }}>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -491,8 +506,94 @@ export default function GamePage() {
                 )}
               </div>
             </div>
-          ))}
-        </div>
+                ))}
+              </div>
+
+              {older.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    onClick={() => setShowOldPrizes(p => !p)}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--purple)", fontSize: 13, fontWeight: 600, padding: "6px 0", display: "flex", alignItems: "center", gap: 6 }}
+                  >
+                    {showOldPrizes ? "▾ Hide" : "▸ Show"} older / inactive ({older.length})
+                  </button>
+                  {showOldPrizes && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 28, marginTop: 16 }}>
+                      {older.map(prize => (
+                        <div key={prize.id} ref={el => { prizeRefs.current[prize.id] = el; }} style={{ border: `1px solid ${prizeStatus(prize).borderColor}`, borderRadius: 10, padding: "20px", opacity: 0.7 }}>
+                          <div style={{ ...rowBetween, marginBottom: 18 }}>
+                            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                              <input
+                                value={prize.title ?? ""}
+                                onChange={e => updatePrize(prize.id, "title", e.target.value)}
+                                style={{ fontWeight: 700, fontSize: 15, border: "none", borderBottom: "1px solid var(--border)", background: "transparent", outline: "none", padding: "2px 4px", color: "var(--text)", width: 240 }}
+                                placeholder="Prize title"
+                              />
+                            </div>
+                            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: prizeStatus(prize).color }}>
+                                {prizeStatus(prize).label}
+                              </span>
+                              <Toggle value={prize.enabled} onChange={v => togglePrizeActive(prize, v)} />
+                            </div>
+                          </div>
+
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                            <div>
+                              <div style={fieldLabel}>Description</div>
+                              <input value={prize.description ?? ""} onChange={e => updatePrize(prize.id, "description", e.target.value)} placeholder="e.g. RTLD Signed Poster" />
+                            </div>
+                            <div>
+                              <div style={fieldLabel}>Shopify Product URL</div>
+                              <input value={prize.shopify_product_url ?? ""} onChange={e => updatePrize(prize.id, "shopify_product_url", e.target.value)} placeholder="https://..." />
+                            </div>
+
+                            <div>
+                              <div style={fieldLabel}>Period Start <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(LA time)</span></div>
+                              <input type="datetime-local" value={isoToLAInput(prize.period_start)} onChange={e => updatePrize(prize.id, "period_start", laInputToISO(e.target.value))} />
+                            </div>
+                            <div>
+                              <div style={fieldLabel}>Period End <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(blank = ongoing)</span></div>
+                              <input type="datetime-local" value={isoToLAInput(prize.period_end)} onChange={e => updatePrize(prize.id, "period_end", laInputToISO(e.target.value) || null as unknown as string)} />
+                            </div>
+
+                            <div>
+                              <div style={fieldLabel}>Rank From</div>
+                              <input type="number" min={1} value={prize.rank_from ?? 1} onChange={e => updatePrize(prize.id, "rank_from", parseInt(e.target.value))} />
+                            </div>
+                            <div>
+                              <div style={fieldLabel}>Rank To</div>
+                              <input type="number" min={1} value={prize.rank_to ?? 1} onChange={e => updatePrize(prize.id, "rank_to", parseInt(e.target.value))} />
+                            </div>
+
+                            <div style={{ gridColumn: "1 / -1" }}>
+                              <div style={fieldLabel}>Winner Email Body</div>
+                              <textarea rows={3} value={prize.email_body ?? ""} onChange={e => updatePrize(prize.id, "email_body", e.target.value)} placeholder="Congratulations! You've won…" style={{ resize: "vertical" }} />
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 16 }}>
+                            <button onClick={() => savePrize(prize)} style={{ ...btnPrimary, padding: "9px 22px" }}>
+                              Save Prize
+                            </button>
+                            <button onClick={() => deletePrize(prize.id)} style={{ ...btnSecondary, color: "var(--red)", borderColor: "var(--red)" }}>
+                              Delete
+                            </button>
+                            {prizeMsgs[prize.id] && (
+                              <span style={{ fontSize: 13, color: prizeMsgs[prize.id].startsWith("Error") ? "var(--red)" : "var(--green)" }}>
+                                {prizeMsgs[prize.id]}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          );
+        })()}
       </section>
     </div>
   );
