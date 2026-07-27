@@ -182,10 +182,16 @@ export default function GamePage() {
 
   async function createPrize() {
     const supabase = createClient();
+    const now = new Date();
+    const monthLater = new Date(now); monthLater.setDate(monthLater.getDate() + 30);
     const { data, error } = await supabase.from("prizes").insert({
       title: "New Prize",
       description: "",
       enabled: false,
+      period_start: now.toISOString(),
+      period_end: monthLater.toISOString(),
+      rank_from: 1,
+      rank_to: 1,
     }).select().single();
     if (error) { alert(`Error: ${error.message}`); return; }
     setPrizes(prev => [...prev, data as Prize]);
