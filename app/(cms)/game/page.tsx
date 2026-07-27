@@ -194,9 +194,23 @@ export default function GamePage() {
   }
 
   async function createPrize() {
+    // If an active prize exists, default the new one to start after it ends
+    const lastActiveEnd = prizes
+      .filter(p => p.enabled && p.period_end)
+      .map(p => new Date(p.period_end!).getTime())
+      .reduce((max, t) => Math.max(max, t), 0);
+    const overlap = prizes.some(p => {
+      if (!p.enabled || !p.period_start) return false;
+      const now = Date.now();
+      const end = p.period_end ? new Date(p.period_end).getTime() : Infinity;
+      return now < end;
+    });
+    if (overlap) {
+      alert("An active prize already covers this time period. The new prize will be created starting after it ends — update the dates before enabling.");
+    }
     try {
       const supabase = createClient();
-      const now = new Date();
+      const now = new Date(lastActiveEnd > Date.now() ? lastActiveEnd + 1 : Date.now());
       const monthLater = new Date(now); monthLater.setDate(monthLater.getDate() + 30);
       const { data, error } = await supabase.from("prizes").insert({
         title: "New Prize",
