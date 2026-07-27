@@ -4,13 +4,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const NAV = [
-  { href: "/leaderboard-prizes", label: "LB Prizes",       icon: "🏆" },
-  { href: "/wheel",              label: "Wheel of Fortune", icon: "🎡" },
-  { href: "/players",       label: "Players",        icon: "👥" },
-  { href: "/push",          label: "Push Notifs",    icon: "🔔" },
-  { href: "/analytics",     label: "Analytics",      icon: "📊" },
-  { href: "/prize-winners", label: "Prize Winners",  icon: "🏆" },
-  { href: "/movie-updates", label: "Movie Updates",  icon: "🎬" },
+  { href: "/leaderboard",        label: "Leaderboard",      icon: "🥇" },
+  { href: "/leaderboard-prizes", label: "LB Prizes",        icon: "🎖️"  },
+  { href: "/wheel",              label: "Wheel of Fortune",  icon: "🎡" },
+  { href: "/players",            label: "Players",           icon: "👥" },
+  { href: "/analytics",          label: "Analytics",         icon: "📊" },
+  { href: "/prize-winners",      label: "Prize Winners",     icon: "🏆" },
+  { href: "/movie-updates",      label: "Movie Updates",     icon: "🎬" },
+  { href: "/push",               label: "Push Notifs",       icon: "🔔" },
 ];
 
 export default function Sidebar() {
