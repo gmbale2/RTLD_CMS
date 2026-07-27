@@ -39,6 +39,7 @@ export interface Prize {
   rank_to: number | null;
   shopify_product_url: string | null;
   email_body: string | null;
+  image_url: string | null;
 }
 
 export interface CmsConfig {

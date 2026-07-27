@@ -56,6 +56,7 @@ export default function LeaderboardPrizesPage() {
   const [prizeCreateError, setPrizeCreateError] = useState("");
   const [showOldPrizes, setShowOldPrizes] = useState(false);
   const [newPrizeId, setNewPrizeId]       = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState<Record<string, boolean>>({});
   const prizeRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   async function load() {
@@ -97,6 +98,7 @@ export default function LeaderboardPrizesPage() {
       enabled: prize.enabled, period_start: prize.period_start, period_end: prize.period_end,
       rank_from: prize.rank_from, rank_to: prize.rank_to,
       shopify_product_url: prize.shopify_product_url, email_body: prize.email_body,
+      image_url: prize.image_url,
     }).eq("id", prize.id);
     setMsg(prize.id, error ? `Error: ${error.message}` : "Saved ✓");
   }
@@ -113,6 +115,31 @@ export default function LeaderboardPrizesPage() {
       updatePrize(prize.id, "enabled", !enabled);
       setMsg(prize.id, `Error: ${error.message}`);
     }
+  }
+
+  async function uploadImage(prize: Prize, file: File) {
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const path = `prize-${prize.id}.${ext}`;
+    setUploadingImage(prev => ({ ...prev, [prize.id]: true }));
+    try {
+      const supabase = createClient();
+      const { error: upErr } = await supabase.storage.from("prize-images").upload(path, file, { upsert: true });
+      if (upErr) { setMsg(prize.id, `Upload error: ${upErr.message}`); return; }
+      const { data: urlData } = supabase.storage.from("prize-images").getPublicUrl(path);
+      const publicUrl = urlData.publicUrl;
+      updatePrize(prize.id, "image_url", publicUrl);
+      const { error: dbErr } = await supabase.from("prizes").update({ image_url: publicUrl }).eq("id", prize.id);
+      setMsg(prize.id, dbErr ? `DB error: ${dbErr.message}` : "Image uploaded ✓");
+    } finally {
+      setUploadingImage(prev => ({ ...prev, [prize.id]: false }));
+    }
+  }
+
+  async function removeImage(prize: Prize) {
+    updatePrize(prize.id, "image_url", null);
+    const supabase = createClient();
+    const { error } = await supabase.from("prizes").update({ image_url: null }).eq("id", prize.id);
+    setMsg(prize.id, error ? `Error: ${error.message}` : "Image removed ✓");
   }
 
   async function createPrize() {
@@ -218,6 +245,38 @@ export default function LeaderboardPrizesPage() {
             <textarea rows={3} value={prize.email_body ?? ""} onChange={e => updatePrize(prize.id, "email_body", e.target.value)} placeholder="Congratulations! You've won…" style={{ resize: "vertical" }} />
           </div>
         </div>
+
+        {!dimmed && (
+          <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+            <div style={fieldLabel}>Prize Image</div>
+            {prize.image_url ? (
+              <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 10 }}>
+                <img src={prize.image_url} alt="Prize" style={{ width: 120, height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <span style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all" }}>
+                    {prize.image_url.split("/").pop()}
+                  </span>
+                  <label style={{ ...btnSecondary, display: "inline-block", cursor: "pointer", textAlign: "center", padding: "7px 14px" }}>
+                    Replace image
+                    <input type="file" accept="image/*" style={{ display: "none" }}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(prize, f); e.target.value = ""; }}
+                      disabled={uploadingImage[prize.id]} />
+                  </label>
+                  <button onClick={() => removeImage(prize)} style={{ ...btnSecondary, color: "var(--red)", borderColor: "var(--red)", padding: "7px 14px" }}>
+                    Remove image
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label style={{ ...btnSecondary, display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 10 }}>
+                {uploadingImage[prize.id] ? "Uploading…" : "📁 Upload image"}
+                <input type="file" accept="image/*" style={{ display: "none" }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(prize, f); e.target.value = ""; }}
+                  disabled={uploadingImage[prize.id]} />
+              </label>
+            )}
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 16 }}>
           <button onClick={() => savePrize(prize)} style={{ ...btnPrimary, padding: "9px 22px" }}>Save Prize</button>
