@@ -4,7 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const NAV = [
-  { href: "/game",          label: "Game Controls",  icon: "🎮" },
+  { href: "/leaderboard-prizes", label: "LB Prizes",       icon: "🏆" },
+  { href: "/wheel",              label: "Wheel of Fortune", icon: "🎡" },
   { href: "/players",       label: "Players",        icon: "👥" },
   { href: "/push",          label: "Push Notifs",    icon: "🔔" },
   { href: "/analytics",     label: "Analytics",      icon: "📊" },
