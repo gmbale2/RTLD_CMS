@@ -21,14 +21,16 @@ type SortKey = keyof PlayerRow;
 const PAGE_SIZE = 25;
 
 const COLUMNS: { key: SortKey; label: string; align?: "right" }[] = [
-  { key: "display_name",      label: "Player" },
+  { key: "display_name",      label: "Display Name" },
+  { key: "username",          label: "Username" },
+  { key: "email",             label: "Email" },
   { key: "country",           label: "Country" },
   { key: "registered_at",     label: "Registered" },
-  { key: "best_score_alltime",label: "Best Score ▴", align: "right" },
-  { key: "best_score_period", label: "Period Score",  align: "right" },
-  { key: "games_played",      label: "Games",         align: "right" },
-  { key: "best_level",        label: "Best Level",    align: "right" },
-  { key: "wheel_spins",       label: "Wheel Spins",   align: "right" },
+  { key: "best_score_alltime",label: "Best Score", align: "right" },
+  { key: "best_score_period", label: "Period Score", align: "right" },
+  { key: "games_played",      label: "Games",       align: "right" },
+  { key: "best_level",        label: "Best Level",  align: "right" },
+  { key: "wheel_spins",       label: "Wheel Spins", align: "right" },
 ];
 
 export default function PlayersPage() {
@@ -44,6 +46,26 @@ export default function PlayersPage() {
   const [editScore,   setEditScore]   = useState<Record<string, string>>({});
   const [reason,      setReason]      = useState<Record<string, string>>({});
   const [msgs,        setMsgs]        = useState<Record<string, string>>({});
+
+  function exportCSV() {
+    const rows = [
+      ["Display Name", "Username", "Email", "Country", "Registered", "Best Score", "Period Score", "Games", "Best Level", "Wheel Spins"],
+      ...filtered.map(p => [
+        p.display_name ?? "",
+        p.username ?? "",
+        p.email ?? "",
+        p.country ?? "",
+        p.registered_at ? new Date(p.registered_at).toLocaleDateString("en-US") : "",
+        p.best_score_alltime,
+        p.best_score_period,
+        p.games_played,
+        p.best_level,
+        p.wheel_spins,
+      ]),
+    ];
+    const blob = new Blob([rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n")], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `players-${dateFrom}-to-${dateTo}.csv`; a.click();
+  }
 
   async function load() {
     setLoading(true);
@@ -146,6 +168,9 @@ export default function PlayersPage() {
         <button onClick={load} disabled={loading} style={btnPrimary}>
           {loading ? "Loading…" : "Apply"}
         </button>
+        <button onClick={exportCSV} disabled={filtered.length === 0} style={btnSecondary}>
+          Export CSV
+        </button>
       </div>
 
       {/* Table */}
@@ -180,14 +205,19 @@ export default function PlayersPage() {
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "var(--bg-base)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ""; }}>
 
-                  {/* Player */}
+                  {/* Display Name */}
                   <td style={td}>
                     <div style={{ fontWeight: 600, color: "var(--text)" }}>
-                      {player.display_name || player.username || "—"}
+                      {player.display_name || "—"}
                       {player.hidden && <span style={hiddenBadge}>HIDDEN</span>}
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>@{player.username ?? "—"}</div>
                   </td>
+
+                  {/* Username */}
+                  <td style={{ ...td, color: "var(--text-muted)" }}>@{player.username ?? "—"}</td>
+
+                  {/* Email */}
+                  <td style={{ ...td, color: "var(--text-muted)", fontSize: 12 }}>{player.email ?? "—"}</td>
 
                   {/* Country */}
                   <td style={td}>{player.country ?? <span style={{ color: "var(--text-muted)" }}>—</span>}</td>
@@ -249,7 +279,7 @@ export default function PlayersPage() {
                 {/* Inline edit row */}
                 {expandedId === player.id && (
                   <tr style={{ background: "var(--bg-base)", borderBottom: "1px solid var(--border)" }}>
-                    <td colSpan={9} style={{ padding: "12px 16px" }}>
+                    <td colSpan={11} style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                         <span style={{ fontSize: 12, color: "var(--text-muted)", minWidth: 200 }}>{player.email ?? "No email"}</span>
                         <input
@@ -275,7 +305,7 @@ export default function PlayersPage() {
 
             {!loading && pageRows.length === 0 && (
               <tr>
-                <td colSpan={9} style={{ padding: "40px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+                <td colSpan={11} style={{ padding: "40px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
                   {players.length === 0 ? "No players yet" : "No players match your search"}
                 </td>
               </tr>
@@ -305,7 +335,8 @@ export default function PlayersPage() {
 
 const h1: React.CSSProperties  = { fontSize: 22, fontWeight: 800, margin: 0, color: "var(--text)" };
 const muted: React.CSSProperties = { color: "var(--text-muted)", fontSize: 13, margin: "4px 0 0" };
-const btnPrimary: React.CSSProperties = { background: "var(--purple)", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 700, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" };
-const btnSmall: React.CSSProperties   = { background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text)", borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" };
+const btnPrimary: React.CSSProperties   = { background: "var(--purple)", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 700, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" };
+const btnSecondary: React.CSSProperties = { background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text-muted)", borderRadius: 6, padding: "9px 16px", fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" };
+const btnSmall: React.CSSProperties     = { background: "transparent", border: "1px solid var(--border-strong)", color: "var(--text)", borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" };
 const td: React.CSSProperties         = { padding: "10px 14px", color: "var(--text)", verticalAlign: "middle" };
 const hiddenBadge: React.CSSProperties = { fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 20, background: "#fef2f2", color: "var(--red)", border: "1px solid #fecaca", marginLeft: 8 };
