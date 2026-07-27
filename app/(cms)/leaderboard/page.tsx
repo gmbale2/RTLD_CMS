@@ -142,7 +142,7 @@ export default function LeaderboardPage() {
     if (mode === "alltime") {
       const rows = [
         ["Rank", "Display Name", "Username", "Email", "Country", "Best Score", "Best Level", "Games Played"],
-        ...filtered.map(e => [e.rank, e.display_name ?? "", e.username ?? "", e.email ?? "", e.country ?? "", e.best_score, e.best_level, e.games_played]),
+        ...(filtered as Entry[]).map(e => [e.rank, e.display_name ?? "", e.username ?? "", e.email ?? "", e.country ?? "", e.best_score, e.best_level, e.games_played]),
       ];
       dl(rows, "leaderboard-alltime.csv");
     } else {
