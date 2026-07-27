@@ -50,6 +50,7 @@ export default function GamePage() {
   const [prizeMsgs, setPrizeMsgs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [newPrizeId, setNewPrizeId] = useState<string | null>(null);
+  const [prizeCreateError, setPrizeCreateError] = useState("");
   const prizeRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   async function load() {
@@ -206,7 +207,9 @@ export default function GamePage() {
       return now < end;
     });
     if (overlap) {
-      alert("An active prize already covers this time period. The new prize will be created starting after it ends — update the dates before enabling.");
+      setPrizeCreateError("Error: An active prize already covers this period. The new prize will start after it ends — update the dates before enabling it.");
+    } else {
+      setPrizeCreateError("");
     }
     try {
       const supabase = createClient();
@@ -411,10 +414,15 @@ export default function GamePage() {
 
       {/* Prizes */}
       <section style={{ ...card, marginTop: 20 }}>
-        <div style={{ ...rowBetween, marginBottom: 24 }}>
+        <div style={{ ...rowBetween, marginBottom: prizeCreateError ? 12 : 24 }}>
           <div style={sectionTitle}>Prizes & Leaderboard Rewards</div>
           <button onClick={createPrize} style={btnPrimary}>+ Add Prize</button>
         </div>
+        {prizeCreateError && (
+          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "14px 18px", marginBottom: 20, color: "var(--red)", fontSize: 15, fontWeight: 700 }}>
+            {prizeCreateError}
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {prizes.map(prize => (
             <div key={prize.id} ref={el => { prizeRefs.current[prize.id] = el; }} style={{ border: `1px solid ${prizeStatus(prize).borderColor}`, borderRadius: 10, padding: "20px" }}>
